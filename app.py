@@ -39,7 +39,7 @@ conn.execute("DROP TABLE IF EXISTS transactions")
 conn.execute("""
 CREATE TABLE IF NOT EXISTS transactions (
     TransactionID INTEGER PRIMARY KEY AUTOINCREMENT,
-    Transactiondate DATETIME NOT NULL,
+    Transactiondate DATE NOT NULL,
     Description TEXT NOT NULL,
     Amount REAL NOT NULL,
     Category TEXT,
@@ -60,25 +60,40 @@ CREATE TABLE IF NOT EXISTS categoryKeywords (
     PRIMARY KEY (Category, Keyword))
 """)
 
-# -------------- Handling transactions --------------
-def transaction_handling():
-    for index, row in df.iterrows():
-        # Gets the transaction date, description, and amount
-        transaction_date = row["Transaksjonsdato"]
-        description = row["Beskrivelse"]
-        amount = row["Beløp"]
+# -------------- Handling categories --------------
+def get_transaction_category(description):
+    """ Returns the category of a transaction based on its description """
+    cursor = conn.execute("""
+    SELECT Category FROM categoryKeywords
+    WHERE Keyword IN (SELECT Keyword FROM categoryKeywords WHERE Category = ?)
+    """, (description,))
+    
+    result = cursor.fetchone()
+    if result:
+        return result[0]
+    else:
+        return None
 
-        # Check if description matches keywords in categoryKeywords
-        cursor = conn.execute("""
-        SELECT Category FROM categoryKeywords
-        WHERE Keyword IN (?)
-        """, (description,))
-        category = cursor.fetchone()
-        if category:
-            category = category[0]
+def set_transaction_category(description):
+    """ Sets the category of a transaction based on its description """
+    category = get_transaction_category(description)
+    if category:
+        return category
+    else:
+        # If no category is found, ask to add a new category
+        category_list = list_categories()
+        category_name = input(f"No category found for '{description}'. Please select category or add new one: ")
+        # Check if input is number
+        if category_name.isdigit() and int(category_name) <= len(category_list):
+            category_name = category_list[int(category_name) - 1]
+        elif category_name.isalpha():
+            # If not a number, treat it as a new category
+            print(f"Adding new category: {category_name}")
+            add_category(category_name)
         else:
-            # If no match, assign a default category
-            category = "Uncategorized"
+            # If empty return "Uncategorized"
+            category_name = "Uncategorized"
+        return category_name
 
 def add_category(category_name):
     # Check if the category already exists
@@ -89,38 +104,40 @@ def add_category(category_name):
     """ Adds a new category to the categories table """
     conn.execute("INSERT INTO categories (Category) VALUES (?)", (category_name,))
     conn.commit()
+    return category_name
 
 def list_categories():
-    """ Lists all categories in the categories table """
+    """ Lists all categories in the categories table and return list of categories """
     cursor = conn.execute("SELECT Category FROM categories")
     categories = cursor.fetchall()
-    for index, (category,) in enumerate(categories):
-        print(f"{index + 1}. {category}")
+    if not categories:
+        print("No categories found.")
+        return []
+    
+    print("Categories:")
+    for index, category in enumerate(categories):
+        print(f"{index + 1}. {category[0]}")
+    
+    return [category[0] for category in categories]
 
+# --------- Handle transactions and insert them into the database ---------
 # Go trough all transactions and insert them into the database
 for index, row in df.iterrows():
-    print(row)
     if index % 100 == 0:
         print(f"Processing transaction {index + 1} of {len(df)}")
-    transaction_date = row["Transaksjonsdato"]
-    print(transaction_date)
-    # if transaction_date is only date, add time as 00:00:00
-    if isinstance(transaction_date, pd.Timestamp):
-        transaction_date = transaction_date.replace(hour=0, minute=0, second=0)
+
+    transaction_date = str(row["Transaksjonsdato"])
     description = row["Beskrivelse"]
     amount = row["Beløp"]
 
-    # Convert pandas Timestamp to string (ISO format)
-    if pd.notnull(transaction_date):
-        transaction_date_str = transaction_date.strftime("%Y-%m-%d %H:%M:%S")
-    else:
-        transaction_date_str = None
+    # Set the category for the transaction
+    category = set_transaction_category(description)
 
     # Insert the transaction into the database
     conn.execute("""
     INSERT INTO transactions (Transactiondate, Description, Amount, Category)
     VALUES (?, ?, ?, ?)
-    """, (transaction_date_str, description, amount, "Uncategorized"))
+    """, (transaction_date, description, amount, category))
     conn.commit()
 # Close the database connection
 conn.close()
