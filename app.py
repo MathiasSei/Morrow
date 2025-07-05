@@ -151,6 +151,8 @@ def handle_transactions():
     df["Transaksjonsdato"] = pd.to_datetime(df["Transaksjonsdato"], dayfirst=True, errors="coerce")
 
     setup_database()  # Setup the database
+
+    
     
     # Go trough all transactions and insert them into the database
     for index, row in df.iterrows():
@@ -165,6 +167,7 @@ def handle_transactions():
         # Set transaction_type
         if amount < 0:
             transaction_type = "Expense"
+            amount = abs(amount)  # Store amount as positive for expenses
             # Set the category for the transaction
             category = set_transaction_category(description)
         elif amount > 0:
@@ -184,7 +187,7 @@ def handle_transactions():
                 transaction_type = "Return"
         else:
             transaction_type = "Unknown"
-
+    
         # Insert the transaction into the database
         conn.execute("""
         INSERT INTO transactions (Transactiondate, Description, Amount, Type, Category)
@@ -195,4 +198,6 @@ def handle_transactions():
     conn.close()
 
 if __name__ == "__main__":
+    conn = sqlite3.connect("transactions.db")
     handle_transactions()
+    conn.close()

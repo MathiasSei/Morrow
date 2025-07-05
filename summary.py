@@ -1,11 +1,24 @@
 import sqlite3
-import app
+conn = sqlite3.connect('transactions.db')
 
-categories = app.list_categories()
+def list_categories():
+    """ Lists all categories in the categories table and return list of categories """
+    cursor = conn.execute("SELECT Category FROM categories")
+    categories = cursor.fetchall()
+    if not categories:
+        print("No categories found.")
+        return []
+    
+    print("Categories:")
+    for index, category in enumerate(categories):
+        print(f"{index + 1}. {category[0]}")
+    
+    return [category[0] for category in categories]
+
+categories = list_categories()
 
 # Get amount per category
 def get_amount_per_category():
-    conn = sqlite3.connect('transactions.db')
     cursor = conn.cursor()
     
     # Create a dictionary to hold the total amount per category
