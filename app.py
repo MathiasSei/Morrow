@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 import sqlite3
 
@@ -43,6 +44,7 @@ CREATE TABLE IF NOT EXISTS transactions (
     Transactiondate DATE NOT NULL,
     Description TEXT NOT NULL,
     Amount REAL NOT NULL,
+    Type TEXT,
     Category TEXT,
     FOREIGN KEY (Category) REFERENCES categories(Category)
 )
@@ -61,14 +63,19 @@ CREATE TABLE IF NOT EXISTS categoryKeywords (
     PRIMARY KEY (Category, Keyword))
 """)
 
+def clear_terminal():
+    """ Clears the terminal screen """
+    os.system('cls' if os.name == 'nt' else 'clear')
+
 # -------------- Handling categories --------------
 def get_transaction_category(description):
     """ Returns the category of a transaction based on its description """
     cursor = conn.execute("""
-    SELECT Category FROM categoryKeywords
-    WHERE Keyword IN (SELECT Keyword FROM categoryKeywords WHERE Category = ?)
+        SELECT Category FROM categoryKeywords
+        WHERE LOWER(?) LIKE '%' || LOWER(Keyword) || '%'
+        ORDER BY LENGTH(Keyword) DESC
+        LIMIT 1
     """, (description,))
-    
     result = cursor.fetchone()
     if result:
         return result[0]
@@ -139,21 +146,37 @@ def list_categories():
 # --------- Handle transactions and insert them into the database ---------
 # Go trough all transactions and insert them into the database
 for index, row in df.iterrows():
-    if index % 100 == 0:
-        print(f"Processing transaction {index + 1} of {len(df)}")
-
+    clear_terminal()
     transaction_date = str(row["Transaksjonsdato"])
     description = row["Beskrivelse"]
     amount = row["Beløp"]
+    print(f"Processing transaction {index + 1} of {len(df)}")
+    print(f"Transaction date: {transaction_date}, Description: {description}, Amount: {amount}")
 
-    # Set the category for the transaction
-    category = set_transaction_category(description)
+
+
+    # Set transaction_type
+    if amount < 0:
+        transaction_type = "Expense"
+        # Set the category for the transaction
+        category = set_transaction_category(description)
+    elif amount > 0:
+        # Ask if the transaction is an Innbetaling or return
+        while True:
+            transaction_type = input(f"Is the transaction '{description}' an Innbetaling or return? (I/R): ").strip().upper()
+            if transaction_type in ["I", "R"]:
+                transaction_type = "Income" if transaction_type == "I" else "Return"
+                break
+            else:
+                print("Invalid input. Please enter 'I' for Innbetaling or 'R' for return.")
+    else:
+        transaction_type = "Unknown"
 
     # Insert the transaction into the database
     conn.execute("""
-    INSERT INTO transactions (Transactiondate, Description, Amount, Category)
-    VALUES (?, ?, ?, ?)
-    """, (transaction_date, description, amount, category))
+    INSERT INTO transactions (Transactiondate, Description, Amount, Type, Category)
+    VALUES (?, ?, ?, ?, ?)
+    """, (transaction_date, description, amount, transaction_type, category))
     conn.commit()
 # Close the database connection
 conn.close()
