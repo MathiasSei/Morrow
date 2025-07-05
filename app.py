@@ -143,6 +143,12 @@ def list_categories():
     
     return [category[0] for category in categories]
 
+def print_google_search_link(query):
+    import urllib.parse
+    base_url = "https://www.google.com/search?q="
+    search_url = base_url + urllib.parse.quote_plus(query)
+    print(search_url)  # This will be clickable in most terminals
+
 # --------- Handle transactions and insert them into the database ---------
 # Go trough all transactions and insert them into the database
 for index, row in df.iterrows():
@@ -152,8 +158,7 @@ for index, row in df.iterrows():
     amount = row["Beløp"]
     print(f"Processing transaction {index + 1} of {len(df)}")
     print(f"Transaction date: {transaction_date}, Description: {description}, Amount: {amount}")
-
-
+    print_google_search_link(description)
 
     # Set transaction_type
     if amount < 0:
@@ -161,14 +166,17 @@ for index, row in df.iterrows():
         # Set the category for the transaction
         category = set_transaction_category(description)
     elif amount > 0:
-        # Ask if the transaction is an Innbetaling or return
-        while True:
-            transaction_type = input(f"Is the transaction '{description}' an Innbetaling or return? (I/R): ").strip().upper()
-            if transaction_type in ["I", "R"]:
-                transaction_type = "Income" if transaction_type == "I" else "Return"
-                break
-            else:
-                print("Invalid input. Please enter 'I' for Innbetaling or 'R' for return.")
+        if "Innbetaling" in description:
+            transaction_type = "Innbetaling"
+        else:
+            # Ask if the transaction is an Innbetaling or return
+            while True:
+                transaction_type = input(f"Is the transaction '{description}' an Innbetaling or return? (I/R): ").strip().upper()
+                if transaction_type in ["I", "R"]:
+                    transaction_type = "Income" if transaction_type == "I" else "Return"
+                    break
+                else:
+                    print("Invalid input. Please enter 'I' for Innbetaling or 'R' for return.")
     else:
         transaction_type = "Unknown"
 
