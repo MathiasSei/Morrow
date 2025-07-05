@@ -33,6 +33,7 @@ Table: categoryKeywords
 Columns: Category, Keyword
 Foreign key: Category in categoryKeywords references Category in categories
 """
+
 # Delete the transactions table if it exists
 conn.execute("DROP TABLE IF EXISTS transactions")
 # Create tables if they do not exist
@@ -87,12 +88,15 @@ def set_transaction_category(description):
         if category_name.isdigit() and int(category_name) <= len(category_list):
             category_name = category_list[int(category_name) - 1]
         elif category_name.isalpha():
-            # If not a number, treat it as a new category
-            print(f"Adding new category: {category_name}")
-            add_category(category_name)
+            if category_name not in category_list:
+                # If not already exists treat it as a new category
+                print(f"Adding new category: {category_name}")
+                add_category(category_name)
         else:
             # If empty return "Uncategorized"
-            category_name = "Uncategorized"
+            return "Uncategorized"
+        # Add the keyword to the category
+        add_keyword_to_category(category_name, description)
         return category_name
 
 def add_category(category_name):
@@ -105,6 +109,18 @@ def add_category(category_name):
     conn.execute("INSERT INTO categories (Category) VALUES (?)", (category_name,))
     conn.commit()
     return category_name
+
+def add_keyword_to_category(category_name, keyword):
+    """ Adds a keyword to a category in the categoryKeywords table """  
+    # Check if the keyword already exists for the category
+    cursor = conn.execute("SELECT Keyword FROM categoryKeywords WHERE Category = ? AND Keyword = ?", (category_name, keyword))
+    if cursor.fetchone() is not None:
+        return
+    
+    # Insert the new keyword into the categoryKeywords table
+    conn.execute("INSERT INTO categoryKeywords (Category, Keyword) VALUES (?, ?)", (category_name, keyword))
+    conn.commit()
+    print(f"Keyword '{keyword}' added to category '{category_name}'.")
 
 def list_categories():
     """ Lists all categories in the categories table and return list of categories """
