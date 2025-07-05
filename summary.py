@@ -29,9 +29,19 @@ def get_amount_per_category():
         total = cursor.fetchone()[0] or 0  # Use 0 if no transactions found
         category_totals[category] = total
     
-    conn.close()
     return category_totals
 
 print("Amount per category:")
 for category, total in get_amount_per_category().items():
     print(f"{category}: {total:.2f} NOK")
+
+# Get total where description is "Innbetaling"
+def get_total_innbetaling():
+    cursor = conn.cursor()
+    cursor.execute("SELECT SUM(Amount) FROM transactions WHERE Description LIKE ?", ('%Innbetaling%',))
+    total = cursor.fetchone()[0] or 0  # Use 0 if no transactions found
+    conn.close()
+    return total
+
+print(f"Total Innbetaling: {get_total_innbetaling():.2f} NOK")
+conn.close()

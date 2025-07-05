@@ -171,6 +171,7 @@ def handle_transactions():
             # Set the category for the transaction
             category = set_transaction_category(description)
         elif amount > 0:
+            category = "InnPåKonto"
             if "Innbetaling" in description:
                 transaction_type = "Innbetaling"
             elif "Bonus" in description:
